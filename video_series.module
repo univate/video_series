@@ -1,0 +1,46 @@
+<?php
+
+include_once('video_series.features.inc');
+
+/**
+ *
+ */
+function video_series_nodeapi(&$node, $op, $op3, $op4) {
+  // prevent access to the kaltura entry content types
+  if ($node->type == 'kaltura-entry' && $op == 'view' && !user_access('access all videos')) {
+    drupal_access_denied();
+    exit;
+  }
+}
+
+/**
+ * Check that users has flag set on this node, if not then display thumbnail
+ * and link to purchase video.
+ */
+function video_series_preprocess_kaltura_player(&$variables) {
+  global $user;
+  if (arg(0) != 'node') return;
+  $nid = arg(1);
+  $node = node_load($nid);
+
+  $kaltura_metadata = kaltura_get_metadata_for_mix($variables['media_id']);
+  if($kaltura_metadata) {
+    $variables['thumbnail_url'] = $kaltura_metadata->kaltura_thumbnail_url;
+  }
+
+  $flag = flag_get_user_flags('node', $node->nid, $user->uid);
+  if ($user->uid == 0) {
+    $variables['show_thumbnail'] = TRUE;
+  }
+  elseif (empty($flag['video_series_purchased_content']) && !user_access('edit any video content')) {
+    // user does not have access to view video content.
+    drupal_add_js(array('kaltura' => array($variables['media_id'] => NULL)), 'setting');
+    unset($variables['options']['embed']);
+    unset($variables['options']['show_embed']);
+    $variables['purchase_link'] = flag_create_link('video_series_purchased_content', $nid);
+    $variables['show_thumbnail'] = TRUE;
+  }
+  else {
+    // User has access to watch video.
+  }
+}
